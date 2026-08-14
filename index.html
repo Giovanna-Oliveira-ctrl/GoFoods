@@ -840,11 +840,13 @@ function bindGlobalEvents(){
   });
   document.getElementById('globalSearch').addEventListener('input', (e)=>{
     ordersFilters.q = e.target.value;
+    ordersFilters.page = 1;
     if(currentRoute==='pedidos'){
-      ordersFilters.page=1;
       const fq = document.getElementById('filterQ');
       if(fq) fq.value = e.target.value;
       updatePedidosTable();
+    } else {
+      navigate('pedidos');
     }
   });
 }
@@ -1431,7 +1433,11 @@ function renderPedidos(root){
   document.getElementById('filterProduct').addEventListener('change', e=>{ ordersFilters.product=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('filterFrom').addEventListener('change', e=>{ ordersFilters.from=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('filterTo').addEventListener('change', e=>{ ordersFilters.to=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
-  document.getElementById('clearFilters').addEventListener('click', ()=>{ ordersFilters={q:'',dept:'',status:'',product:'',from:'',to:'',page:1}; renderView(); });
+  document.getElementById('clearFilters').addEventListener('click', ()=>{
+    ordersFilters={q:'',dept:'',status:'',product:'',from:'',to:'',page:1};
+    const gs = document.getElementById('globalSearch'); if(gs) gs.value='';
+    renderView();
+  });
 
   updatePedidosTable();
 }
