@@ -1493,10 +1493,30 @@ function updatePedidosTable(){
   });
   container.querySelectorAll('.status-select').forEach(sel=>{
     sel.addEventListener('change', ()=>{
-      changeOrderStatus(sel.dataset.order, sel.value);
-      updatePedidosTable();
-      renderSidebar();
+      const orderId = sel.dataset.order;
+      const newStatus = sel.value;
+      if(newStatus==='cancelado'){
+        confirmDialog('Cancelar pedido?', `Tem certeza que deseja cancelar o pedido ${orderId}? Essa ação não pode ser desfeita.`, ()=>{
+          changeOrderStatus(orderId, newStatus);
+          updatePedidosTable();
+          renderSidebar();
+        });
+        // se o usuário desistir, volta o select para o status atual
+        const o = DB.orders.find(x=>x.id===orderId);
+        if(o) sel.value = o.status;
+      } else {
+        changeOrderStatus(orderId, newStatus);
+        updatePedidosTable();
+        renderSidebar();
+      }
     });
+  });
+}
+
+function restoreStockForOrder(o){
+  o.items.forEach(it=>{
+    const p = productById(it.productId);
+    if(p) p.stock += it.qty;
   });
 }
 
@@ -1504,6 +1524,7 @@ function changeOrderStatus(orderId, newStatus, actor){
   const o = DB.orders.find(x=>x.id===orderId);
   if(!o || o.status===newStatus) return;
   const oldLabel = STATUS_META[o.status].label;
+  if(newStatus==='cancelado' && o.status!=='cancelado') restoreStockForOrder(o);
   o.status = newStatus;
   o.statusHistory.push({status:newStatus, timestamp:new Date().toISOString(), user: actor||'Facilities'});
   pushAudit(`alterou o pedido ${o.id} de "${oldLabel}" para "${STATUS_META[newStatus].label}"`, o.id);
