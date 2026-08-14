@@ -570,7 +570,6 @@ table.data-table{width:100%;border-collapse:collapse;min-width:760px;}
     <div class="sidebar-foot">
       <div class="role-switch">
         <button id="roleAdminBtn" class="active">🛠️ Admin</button>
-        <button id="roleColabBtn">🙋 Colaborador</button>
       </div>
       <button class="btn btn-ghost btn-sm" id="logoutBtn" style="width:100%;margin-top:10px;">🔒 Sair</button>
     </div>
@@ -827,8 +826,6 @@ function bindGlobalEvents(){
     document.getElementById('sidebarOverlay').classList.add('show');
   });
   document.getElementById('sidebarOverlay').addEventListener('click', closeSidebarMobile);
-  document.getElementById('roleAdminBtn').addEventListener('click', ()=>switchRole('admin'));
-  document.getElementById('roleColabBtn').addEventListener('click', ()=>switchRole('colab'));
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
     await clearStoredAuth();
     document.getElementById('loginUser').value = '';
@@ -855,14 +852,6 @@ function closeSidebarMobile(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('show');
 }
-function switchRole(role){
-  currentRole = role;
-  document.getElementById('roleAdminBtn').classList.toggle('active', role==='admin');
-  document.getElementById('roleColabBtn').classList.toggle('active', role==='colab');
-  renderSidebar();
-  navigate(role==='admin' ? 'dashboard' : 'colab-home');
-}
-
 function renderSidebar(){
   const nav = document.getElementById('sidebarNav');
   const items = currentRole==='admin' ? NAV_ITEMS : COLAB_NAV_ITEMS;
