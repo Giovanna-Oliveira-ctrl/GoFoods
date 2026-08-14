@@ -1772,12 +1772,30 @@ function renderDepartamentos(root){
             <div>${orders.length} pedido(s)</div>
             <div class="cell-strong" style="margin-top:2px;font-size:15px;">${fmtBRL(cost)}</div>
           </div>
+          <div class="prod-actions">
+            <button class="btn btn-ghost btn-sm" data-edit-dept="${d.id}">Editar</button>
+            <button class="btn btn-danger btn-sm" data-del-dept="${d.id}">Excluir</button>
+          </div>
         </div>`;
       }).join('')}
     </div>
   `;
   document.getElementById('addDeptBtn').addEventListener('click', ()=>openDeptModal());
   root.querySelectorAll('[data-dept-detail]').forEach(el=>el.addEventListener('click', ()=>openDeptOrdersModal(el.dataset.deptDetail)));
+  root.querySelectorAll('[data-edit-dept]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openDeptModal(b.dataset.editDept); }));
+  root.querySelectorAll('[data-del-dept]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const d = DB.departments.find(x=>x.id===b.dataset.delDept);
+    const orderCount = DB.orders.filter(o=>o.department===d.id).length;
+    if(orderCount>0){
+      toast(`Não é possível excluir "${d.name}": há ${orderCount} pedido(s) associado(s) a este departamento.`,'error');
+      return;
+    }
+    confirmDialog('Excluir departamento?', `Tem certeza que deseja excluir "${d.name}"? Essa ação não pode ser desfeita.`, ()=>{
+      DB.departments = DB.departments.filter(x=>x.id!==d.id);
+      storageSave(); toast('Departamento excluído.','success'); renderView();
+    });
+  }));
 }
 function openDeptOrdersModal(deptId){
   const d = DB.departments.find(x=>x.id===deptId);
