@@ -1853,11 +1853,6 @@ function renderRelatorios(root){
         <div class="field-inline"><span>Até</span><input type="date" id="repTo" value="${reportFilter.to||todayStr()}"></div>
         <button class="btn btn-primary btn-sm" id="repApply">Aplicar</button>
       ` : ''}
-      <div class="row" style="margin-left:auto;gap:8px;">
-        <button class="btn btn-ghost btn-sm" id="expCsv">⬇ Exportar CSV</button>
-        <button class="btn btn-ghost btn-sm" id="expExcel">⬇ Exportar Excel</button>
-        <button class="btn btn-ghost btn-sm" id="expPdf">⬇ Exportar PDF</button>
-      </div>
     </div>
 
     <div class="panel" style="margin-bottom:16px;">
@@ -1921,9 +1916,6 @@ function renderRelatorios(root){
   if(applyBtn) applyBtn.addEventListener('click', ()=>{
     reportFilter.from=document.getElementById('repFrom').value; reportFilter.to=document.getElementById('repTo').value; renderView();
   });
-  document.getElementById('expCsv').addEventListener('click', ()=>exportOrdersCsv(valid));
-  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersCsv(valid,true));
-  document.getElementById('expPdf').addEventListener('click', ()=>toast('Exportação em PDF será enviada por e-mail em instantes.','success'));
 }
 function exportOrdersCsv(orders, asExcel){
   const rows = [['Pedido','Colaborador','Departamento','Data','Horário','Itens','Total','Status']];
@@ -1996,7 +1988,32 @@ function renderConfiguracoes(root){
       </div>
       <div class="form-hint" style="margin-top:16px;">Este é um app interno da Gocase. Os dados de pedidos, colaboradores, produtos e departamentos são compartilhados entre todas as pessoas com acesso a este link.</div>
     </div>
+
+    <div class="panel" style="max-width:640px;margin-top:16px;">
+      <div class="panel-head"><h3>Exportar dados e backup</h3></div>
+      <div class="form-hint" style="margin-bottom:14px;">Exporte todos os pedidos registrados ou baixe um backup completo dos dados do sistema (pedidos, produtos, departamentos, notificações e histórico).</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn btn-ghost btn-sm" id="expCsv">⬇ Exportar CSV</button>
+        <button class="btn btn-ghost btn-sm" id="expExcel">⬇ Exportar Excel</button>
+        <button class="btn btn-ghost btn-sm" id="expPdf">⬇ Exportar PDF</button>
+        <button class="btn btn-soft btn-sm" id="expBackup">💾 Backup</button>
+      </div>
+    </div>
   `;
+  document.getElementById('expCsv').addEventListener('click', ()=>exportOrdersCsv(DB.orders));
+  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersCsv(DB.orders,true));
+  document.getElementById('expPdf').addEventListener('click', ()=>toast('Exportação em PDF será enviada por e-mail em instantes.','success'));
+  document.getElementById('expBackup').addEventListener('click', downloadBackup);
+}
+function downloadBackup(){
+  const json = JSON.stringify(DB, null, 2);
+  const blob = new Blob([json], {type:'application/json;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `gofoods-backup-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup gerado com sucesso.','success');
 }
 
 /* ---------------------------------------------------------------
