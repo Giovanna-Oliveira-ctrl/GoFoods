@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   /* ---- GoFoods design tokens ---- */
@@ -1947,16 +1948,56 @@ function renderRelatorios(root){
     reportFilter.from=document.getElementById('repFrom').value; reportFilter.to=document.getElementById('repTo').value; renderView();
   });
 }
-function exportOrdersCsv(orders, asExcel){
+function ordersToRows(orders){
   const rows = [['Pedido','Colaborador','Departamento','Data','Horário','Itens','Total','Status']];
   orders.forEach(o=>rows.push([o.id,o.employeeName,departmentName(o.department),o.date,o.time,o.items.map(i=>i.qty+'x '+i.name).join(' | '),o.total.toFixed(2),STATUS_META[o.status].label]));
+  return rows;
+}
+function exportOrdersCsv(orders){
+  const rows = ordersToRows(orders);
   const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `relatorio-gofoods${asExcel?'.xls':'.csv'}`;
+  a.href = url; a.download = 'relatorio-gofoods.csv';
   document.body.appendChild(a); a.click(); a.remove();
-  toast(`Relatório exportado (${asExcel?'Excel':'CSV'}).`,'success');
+  URL.revokeObjectURL(url);
+  toast('Relatório exportado (CSV).','success');
+}
+function exportOrdersExcel(orders){
+  if(typeof XLSX==='undefined'){ toast('Não foi possível carregar a biblioteca de planilhas.','error'); return; }
+  const rows = ordersToRows(orders);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+  XLSX.writeFile(wb, 'relatorio-gofoods.xlsx');
+  toast('Relatório exportado (Excel).','success');
+}
+function exportOrdersPdf(orders){
+  const rows = ordersToRows(orders);
+  const win = window.open('', '_blank');
+  if(!win){ toast('Permita pop-ups para gerar o PDF.','error'); return; }
+  const tableHtml = `
+    <table>
+      <thead><tr>${rows[0].map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.slice(1).map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>`;
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório GoFoods</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#23201C;}
+      h1{font-size:18px;margin-bottom:4px;}
+      p{font-size:12px;color:#736C62;margin-top:0;margin-bottom:18px;}
+      table{width:100%;border-collapse:collapse;font-size:11px;}
+      th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
+      th{background:#F4F1EC;}
+    </style></head><body>
+    <h1>Relatório de pedidos — GoFoods</h1>
+    <p>Gerado em ${fmtDateTime(new Date().toISOString())} · ${orders.length} pedido(s)</p>
+    ${tableHtml}
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
 }
 
 /* ---------------------------------------------------------------
@@ -2031,8 +2072,8 @@ function renderConfiguracoes(root){
     </div>
   `;
   document.getElementById('expCsv').addEventListener('click', ()=>exportOrdersCsv(DB.orders));
-  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersCsv(DB.orders,true));
-  document.getElementById('expPdf').addEventListener('click', ()=>toast('Exportação em PDF será enviada por e-mail em instantes.','success'));
+  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersExcel(DB.orders));
+  document.getElementById('expPdf').addEventListener('click', ()=>exportOrdersPdf(DB.orders));
   document.getElementById('expBackup').addEventListener('click', downloadBackup);
 }
 function downloadBackup(){
