@@ -1334,9 +1334,10 @@ function renderNovoPedido(root){
     const pid = document.getElementById('f_product').value;
     const qty = parseInt(document.getElementById('f_qty').value)||1;
     const prod = productById(pid);
-    if(!prod){ toast('Selecione um produto disponível.','error'); return; }
-    if(qty > prod.stock){ toast(`Estoque insuficiente. Disponível: ${prod.stock}`,'error'); return; }
+    if(!prod || !prod.available){ toast('Selecione um produto disponível.','error'); return; }
     const existing = newOrderItems.find(i=>i.productId===pid);
+    const alreadyInCart = existing ? existing.qty : 0;
+    if(alreadyInCart + qty > prod.stock){ toast(`Estoque insuficiente. Disponível: ${prod.stock - alreadyInCart}`,'error'); return; }
     if(existing) existing.qty += qty; else newOrderItems.push({productId:pid, name:prod.name, price:prod.price, qty});
     renderOrderItemsBox();
   });
@@ -1349,6 +1350,8 @@ function renderNovoPedido(root){
     if(!employeeName){ toast('Digite o nome do colaborador.','error'); return; }
     if(!deptId){ toast('Selecione o departamento.','error'); return; }
     if(!newOrderItems.length){ toast('Adicione ao menos um item ao pedido.','error'); return; }
+    const stockError = validateCartAgainstStock(newOrderItems);
+    if(stockError){ toast(stockError,'error'); return; }
     const date = document.getElementById('f_date').value;
     const time = document.getElementById('f_time').value;
     const total = newOrderItems.reduce((s,i)=>s+i.price*i.qty,0);
@@ -1362,7 +1365,7 @@ function renderNovoPedido(root){
       statusHistory: [{status:'pendente', timestamp:new Date().toISOString(), user:employeeName}],
       createdAt: new Date().toISOString(),
     };
-    newOrderItems.forEach(it=>{ const p = productById(it.productId); if(p) p.stock = Math.max(0,p.stock-it.qty); });
+    commitStockForItems(newOrderItems);
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${employeeName}`);
     pushAudit(`registrou o pedido ${order.id} para ${employeeName}`, order.id);
@@ -1517,6 +1520,20 @@ function restoreStockForOrder(o){
   o.items.forEach(it=>{
     const p = productById(it.productId);
     if(p) p.stock += it.qty;
+  });
+}
+function validateCartAgainstStock(items){
+  for(const it of items){
+    const p = productById(it.productId);
+    if(!p || !p.available) return `"${it.name}" não está mais disponível.`;
+    if(it.qty > p.stock) return `Estoque insuficiente para "${it.name}". Disponível: ${p.stock}.`;
+  }
+  return null;
+}
+function commitStockForItems(items){
+  items.forEach(it=>{
+    const p = productById(it.productId);
+    if(p) p.stock = Math.max(0, p.stock - it.qty);
   });
 }
 
@@ -2084,7 +2101,10 @@ function renderColabPedir(root){
   `;
   root.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', ()=>{
     const p = productById(b.dataset.add);
+    if(!p || !p.available){ toast('Este item não está mais disponível.','error'); return; }
     const ex = colabCart.find(i=>i.productId===p.id);
+    const alreadyInCart = ex ? ex.qty : 0;
+    if(alreadyInCart + 1 > p.stock){ toast(`Estoque insuficiente para "${p.name}".`,'error'); return; }
     if(ex) ex.qty++; else colabCart.push({productId:p.id, name:p.name, price:p.price, qty:1});
     renderColabCart();
     toast(`${p.name} adicionado ao carrinho.`,'success');
@@ -2092,6 +2112,8 @@ function renderColabPedir(root){
   renderColabCart();
   document.getElementById('colabConfirmBtn').addEventListener('click', ()=>{
     if(!colabCart.length){ toast('Adicione ao menos um item.','error'); return; }
+    const stockError = validateCartAgainstStock(colabCart);
+    if(stockError){ toast(stockError,'error'); return; }
     const total = colabCart.reduce((s,i)=>s+i.price*i.qty,0);
     const order = {
       id:uid('PED-'), employeeId:colabIdentity.name, employeeName:colabIdentity.name, department:colabIdentity.department,
@@ -2102,7 +2124,7 @@ function renderColabPedir(root){
       statusHistory:[{status:'pendente', timestamp:new Date().toISOString(), user:colabIdentity.name}],
       createdAt:new Date().toISOString(),
     };
-    colabCart.forEach(it=>{ const p=productById(it.productId); if(p) p.stock=Math.max(0,p.stock-it.qty); });
+    commitStockForItems(colabCart);
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${colabIdentity.name}`);
     pushAudit(`registrou o pedido ${order.id} para ${colabIdentity.name}`, order.id);
