@@ -652,6 +652,7 @@ const NAV_ITEMS = [
   {id:'pedidos', label:'Pedidos', icon:'📋'},
   {id:'cardapio', label:'Cardápio', icon:'🍔'},
   {id:'departamentos', label:'Departamentos', icon:'🏢'},
+  {id:'colaboradores', label:'Colaboradores', icon:'👥'},
   {id:'relatorios', label:'Relatórios', icon:'📊'},
   {id:'notificacoes', label:'Notificações', icon:'🔔'},
   {id:'auditoria', label:'Histórico', icon:'🕓'},
@@ -888,6 +889,7 @@ const ROUTE_TITLES = {
   'pedidos': ['Pedidos','Acompanhe e gerencie todos os pedidos.'],
   'cardapio': ['Cardápio','Gerencie os produtos disponíveis.'],
   'departamentos': ['Departamentos','Gerencie os setores da empresa.'],
+  'colaboradores': ['Colaboradores','Veja quem já fez pedidos e o histórico de consumo por pessoa.'],
   'relatorios': ['Relatórios','Gere relatórios de consumo, custos e desperdício.'],
   'notificacoes': ['Notificações','Acompanhe os avisos do sistema.'],
   'auditoria': ['Histórico e Auditoria','Veja todas as ações realizadas no sistema.'],
@@ -917,6 +919,7 @@ function renderView(){
     'pedidos': renderPedidos,
     'cardapio': renderCardapio,
     'departamentos': renderDepartamentos,
+    'colaboradores': renderColaboradores,
     'relatorios': renderRelatorios,
     'notificacoes': renderNotificacoesView,
     'auditoria': renderAuditoria,
@@ -1843,6 +1846,69 @@ function openDeptModal(deptId){
     else{ DB.departments.push({id:uid('DEP-'), name}); toast('Departamento criado.','success'); }
     storageSave(); closeModal(); renderView();
   });
+}
+
+/* ---------------------------------------------------------------
+   COLABORADORES (visão consolidada por pessoa)
+--------------------------------------------------------------- */
+function renderColaboradores(root){
+  const byEmployee = {};
+  DB.orders.forEach(o=>{
+    if(!byEmployee[o.employeeId]){
+      byEmployee[o.employeeId] = {id:o.employeeId, name:o.employeeName, department:o.department, count:0, value:0, lastDate:o.date};
+    }
+    const e = byEmployee[o.employeeId];
+    e.count++;
+    if(o.status!=='cancelado') e.value += o.total;
+    if(o.date >= e.lastDate){ e.lastDate = o.date; e.department = o.department; }
+  });
+  const list = Object.values(byEmployee).sort((a,b)=>b.count-a.count);
+
+  root.innerHTML = `
+    <div class="view-head"><div><h2>Colaboradores</h2><div class="view-sub">${list.length} colaborador(es) com pedidos registrados.</div></div></div>
+    <div class="table-wrap">
+      ${list.length ? `
+      <table class="data-table">
+        <thead><tr><th>Colaborador</th><th>Departamento</th><th>Pedidos</th><th>Total gasto</th><th>Último pedido</th></tr></thead>
+        <tbody>
+          ${list.map(e=>`
+            <tr data-emp="${e.id}">
+              <td class="cell-strong">${escapeHtml(e.name)}</td>
+              <td>${escapeHtml(departmentName(e.department))}</td>
+              <td>${e.count}</td>
+              <td class="cell-strong">${fmtBRL(e.value)}</td>
+              <td>${fmtDate(e.lastDate)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>` : emptyState('👥','Nenhum colaborador ainda','Colaboradores aparecem aqui assim que fizerem o primeiro pedido.')}
+    </div>
+  `;
+  root.querySelectorAll('tbody tr[data-emp]').forEach(tr=>tr.addEventListener('click', ()=>openEmployeeOrdersModal(tr.dataset.emp)));
+}
+function openEmployeeOrdersModal(employeeId){
+  const orders = DB.orders.filter(o=>o.employeeId===employeeId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  if(!orders.length) return;
+  const name = orders[0].employeeName;
+  const total = orders.filter(o=>o.status!=='cancelado').reduce((s,o)=>s+o.total,0);
+  openModal(`
+    <div class="modal-head"><h3>👤 ${escapeHtml(name)}</h3><button class="modal-close" id="closeEmpDetail">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div><div class="cell-sub">Pedidos</div><div class="cell-strong">${orders.length}</div></div>
+        <div><div class="cell-sub">Total gasto</div><div class="cell-strong">${fmtBRL(total)}</div></div>
+      </div>
+      <div class="cell-sub" style="margin-bottom:8px;">Histórico de pedidos</div>
+      ${orders.map(o=>`
+        <div class="order-line">
+          <span>${fmtDate(o.date)} · ${escapeHtml(o.items.map(i=>i.qty+'x '+i.name).join(', '))}</span>
+          <span class="row" style="gap:8px;"><span class="cell-strong">${fmtBRL(o.total)}</span><span class="badge badge-${STATUS_META[o.status].cls}"><span class="dot"></span>${STATUS_META[o.status].label}</span></span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" id="closeEmpDetail2">Fechar</button></div>
+  `, {wide:true});
+  document.getElementById('closeEmpDetail').addEventListener('click', closeModal);
+  document.getElementById('closeEmpDetail2').addEventListener('click', closeModal);
 }
 
 /* ---------------------------------------------------------------
