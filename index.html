@@ -634,12 +634,14 @@ async function storageSave(){
    CONSTANTES
 --------------------------------------------------------------- */
 const CATEGORIES = ['Salgados','Sanduíches','Doces','Frutas','Bebidas','Outros'];
-const STATUS_FLOW = ['pendente','entregue'];
+const STATUS_FLOW = ['pendente','preparo','pronto','entregue'];
 const STATUS_META = {
-  pendente:   {label:'Pendente',       emoji:'🟡', cls:'pending'},
-  entregue:   {label:'Entregue',       emoji:'🟢', cls:'delivered'},
-  cancelado:  {label:'Cancelado',      emoji:'🔴', cls:'cancelled'},
-  nao_retirado:{label:'Não retirado',  emoji:'⚫', cls:'notpicked'},
+  pendente:   {label:'Pendente',              emoji:'🟡', cls:'pending'},
+  preparo:    {label:'Em preparo',             emoji:'🔵', cls:'prep'},
+  pronto:     {label:'Pronto para retirada',   emoji:'🟣', cls:'ready'},
+  entregue:   {label:'Entregue',               emoji:'🟢', cls:'delivered'},
+  cancelado:  {label:'Cancelado',              emoji:'🔴', cls:'cancelled'},
+  nao_retirado:{label:'Não retirado',          emoji:'⚫', cls:'notpicked'},
 };
 const PAYMENT_METHODS = ['Benefício empresa','Desconto em folha','Dinheiro','Não se aplica'];
 
@@ -1525,10 +1527,14 @@ function validateCartAgainstStock(items){
   }
   return null;
 }
+const LOW_STOCK_THRESHOLD = 5;
 function commitStockForItems(items){
   items.forEach(it=>{
     const p = productById(it.productId);
-    if(p) p.stock = Math.max(0, p.stock - it.qty);
+    if(!p) return;
+    p.stock = Math.max(0, p.stock - it.qty);
+    if(p.stock===0) pushNotification('estoque_baixo', `"${p.name}" está esgotado.`);
+    else if(p.stock<=LOW_STOCK_THRESHOLD) pushNotification('estoque_baixo', `Estoque baixo de "${p.name}": ${p.stock} unidade(s) restante(s).`);
   });
 }
 
@@ -2058,7 +2064,7 @@ function renderColabOnboarding(root){
 function renderColabHome(root){
   if(!colabIdentity){ renderColabOnboarding(root); return; }
   const myOrders = DB.orders.filter(o=>o.employeeId===colabIdentity.name);
-  const active = myOrders.find(o=>o.status==='pendente');
+  const active = myOrders.find(o=>STATUS_FLOW.includes(o.status) && o.status!=='entregue');
   root.innerHTML = `
     <div class="colab-hero">
       <h2>Olá, ${escapeHtml(colabIdentity.name.split(' ')[0])}! 👋</h2>
