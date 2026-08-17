@@ -884,15 +884,20 @@ function showLoginScreen(){
   if(!loginBound){
     loginBound = true;
     const tryLogin = async ()=>{
-      const raw = userInput.value.trim();
+      // minúsculas: "Facilities" e "facilities" devem funcionar igual
+      const raw = userInput.value.trim().toLowerCase();
       const email = raw.includes('@') ? raw : `${raw}@${LOGIN_DOMAIN}`;
-      const password = passInput.value;
+      // remove espaço colado sem querer junto com a senha
+      const password = passInput.value.trim();
       if(!raw || !password){ errorEl.textContent = 'Preencha usuário e senha.'; errorEl.style.display='block'; return; }
       btn.disabled = true; btn.textContent = 'Entrando...';
       const {error} = await sb.auth.signInWithPassword({email, password});
       btn.disabled = false; btn.textContent = 'Entrar';
       if(error){
-        errorEl.textContent = 'Usuário ou senha incorretos.';
+        const msg = String(error.message || '');
+        errorEl.textContent = /Invalid login credentials/i.test(msg)
+          ? 'Usuário ou senha incorretos.'
+          : `Não foi possível entrar: ${msg}`;
         errorEl.style.display = 'block';
         return;
       }
