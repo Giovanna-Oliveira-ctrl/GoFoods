@@ -664,12 +664,14 @@ async function storageSave(){
 /* ---------------------------------------------------------------
    CONSTANTES
 --------------------------------------------------------------- */
-const STATUS_FLOW = ['pendente','entregue'];
+const STATUS_FLOW = ['pendente','preparo','pronto','entregue'];
 const STATUS_META = {
-  pendente:   {label:'Pendente',       emoji:'🟡', cls:'pending'},
-  entregue:   {label:'Entregue',       emoji:'🟢', cls:'delivered'},
-  cancelado:  {label:'Cancelado',      emoji:'🔴', cls:'cancelled'},
-  nao_retirado:{label:'Não retirado',  emoji:'⚫', cls:'notpicked'},
+  pendente:   {label:'Pendente',              emoji:'🟡', cls:'pending'},
+  preparo:    {label:'Em preparo',             emoji:'🔵', cls:'prep'},
+  pronto:     {label:'Pronto para retirada',   emoji:'🟣', cls:'ready'},
+  entregue:   {label:'Entregue',               emoji:'🟢', cls:'delivered'},
+  cancelado:  {label:'Cancelado',              emoji:'🔴', cls:'cancelled'},
+  nao_retirado:{label:'Não retirado',          emoji:'⚫', cls:'notpicked'},
 };
 const PAYMENT_METHODS = ['Benefício empresa','Desconto em folha','Dinheiro','Não se aplica'];
 
@@ -962,7 +964,7 @@ function renderNotifDropdown(){
   const dd = document.getElementById('notifDropdown');
   dd.className = 'notif-dropdown';
   const list = DB.notifications.slice(0,8);
-  const NOTIF_ICONS = {novo_pedido:'🥪', pedido_entregue:'🟢', produto_indisponivel:'🚫', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
+  const NOTIF_ICONS = {novo_pedido:'🥪', pedido_entregue:'🟢', pedido_nao_retirado:'⚫'};
   dd.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px 10px;">
       <strong style="font-size:13.5px;">Notificações</strong>
@@ -1838,7 +1840,7 @@ function exportOrdersCsv(orders, asExcel){
 /* ---------------------------------------------------------------
    NOTIFICAÇÕES (página completa)
 --------------------------------------------------------------- */
-const NOTIF_ICONS_FULL = {novo_pedido:'🥪', pedido_entregue:'🟢', produto_indisponivel:'🚫', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
+const NOTIF_ICONS_FULL = {novo_pedido:'🥪', pedido_entregue:'🟢', pedido_nao_retirado:'⚫'};
 function renderNotificacoesView(root){
   root.innerHTML = `
     <div class="view-head">
@@ -1930,7 +1932,7 @@ function renderColabOnboarding(root){
 function renderColabHome(root){
   if(!colabIdentity){ renderColabOnboarding(root); return; }
   const myOrders = DB.orders.filter(o=>o.employeeId===colabIdentity.name);
-  const active = myOrders.find(o=>o.status==='pendente');
+  const active = myOrders.find(o=>STATUS_FLOW.includes(o.status) && o.status!=='entregue');
   root.innerHTML = `
     <div class="colab-hero">
       <h2>Olá, ${escapeHtml(colabIdentity.name.split(' ')[0])}! 👋</h2>
