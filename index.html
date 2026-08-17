@@ -7,8 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E8461F">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GoFoods">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.js"></script>
 <style>
 :root{
   /* ---- GoFoods design tokens ---- */
@@ -638,28 +644,100 @@ table.data-table{width:100%;border-collapse:collapse;min-width:640px;}
 <script>
 /* ============================================================
    GOFOODS — App de gestão de pedidos de lanches
-   Vanilla JS SPA · persistência via window.storage (compartilhada)
+   Vanilla JS SPA · dados no Supabase, sincronizados em tempo real
    ============================================================ */
 window.__GC_BOOT__ = true;
 
 /* ---------------------------------------------------------------
-   STORAGE — dados compartilhados entre todos os usuários do app
+   SUPABASE — banco compartilhado por todos os dispositivos
+   A chave abaixo é a "anon public": ela é feita para ficar visível
+   no navegador. Quem protege os dados são as políticas de RLS
+   configuradas no banco, que exigem usuário autenticado.
 --------------------------------------------------------------- */
-const SKEY = 'gofoods-data-v3'; // versão incrementada para limpar notificações e remover o catálogo de produtos
-const IDKEY = 'gofoods-colab-identity-v1'; // identidade pessoal (não compartilhada) de quem usa o modo Colaborador
-let DB = null; // { orders, employees, departments, products, categories, notifications, audit, meta }
+const SUPABASE_URL = 'https://xspgjstmuoafhhrfptsz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzcGdqc3RtdW9hZmhocmZwdHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NjE3NjgsImV4cCI6MjEwMjUzNzc2OH0.wOtGqEFZUBbLSjx87MfnyPZcUYtPqPdKst_EV9vZbiE';
+const LOGIN_DOMAIN = 'gofoods.app'; // quem digitar só "facilities" vira facilities@gofoods.app
+const IDKEY = 'gofoods-colab-identity-v1'; // identidade do modo Colaborador (fica só neste aparelho)
 
-async function storageLoad(){
-  try{
-    const res = await window.storage.get(SKEY, true);
-    if(res && res.value){ return JSON.parse(res.value); }
-  }catch(e){ /* key not found yet */ }
-  return null;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Espelho local do banco, no mesmo formato que as telas já esperam.
+let DB = { departments:[], orders:[], notifications:[], audit:[], employees:[], meta:{} };
+
+/* ---- conversão entre as colunas do banco (snake_case) e o app ---- */
+function rowToOrder(r){
+  return {
+    id: r.id,
+    employeeId: r.employee_name, employeeName: r.employee_name,
+    department: r.department_id,
+    date: r.order_date, time: r.order_time,
+    items: r.items || [], total: Number(r.total) || 0,
+    observations: r.observations || '',
+    paymentMethod: r.payment_method || '',
+    status: r.status,
+    statusHistory: r.status_history || [],
+    createdAt: r.created_at,
+  };
 }
-async function storageSave(){
-  try{
-    await window.storage.set(SKEY, JSON.stringify(DB), true);
-  }catch(e){ console.error('Falha ao salvar dados', e); }
+function orderToRow(o){
+  return {
+    id: o.id, employee_name: o.employeeName, department_id: o.department,
+    order_date: o.date, order_time: o.time, items: o.items, total: o.total,
+    observations: o.observations, payment_method: o.paymentMethod,
+    status: o.status, status_history: o.statusHistory,
+  };
+}
+function rowToNotification(r){
+  return {id:r.id, type:r.type, message:r.message, read:r.read, timestamp:r.created_at};
+}
+function rowToAudit(r){
+  return {id:r.id, user:r.user_name, action:r.action, orderId:r.order_id, timestamp:r.created_at};
+}
+
+function dbError(e, what){
+  console.error(what, e);
+  toast(`Não foi possível ${what}. Verifique sua conexão.`, 'error');
+}
+
+/* ---- carga inicial ---- */
+async function loadAll(){
+  const [dep, ord, notif, aud] = await Promise.all([
+    sb.from('departments').select('*').order('name'),
+    sb.from('orders').select('*').order('created_at', {ascending:false}),
+    sb.from('notifications').select('*').order('created_at', {ascending:false}).limit(200),
+    sb.from('audit').select('*').order('created_at', {ascending:false}).limit(200),
+  ]);
+  const err = dep.error || ord.error || notif.error || aud.error;
+  if(err){ dbError(err, 'carregar os dados'); return false; }
+  DB.departments   = (dep.data   || []).map(r=>({id:r.id, name:r.name}));
+  DB.orders        = (ord.data   || []).map(rowToOrder);
+  DB.notifications = (notif.data || []).map(rowToNotification);
+  DB.audit         = (aud.data   || []).map(rowToAudit);
+  return true;
+}
+
+/* ---- tempo real: qualquer mudança no banco redesenha a tela ---- */
+let realtimeChannel = null;
+let refreshTimer = null;
+function scheduleRefresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async ()=>{
+    if(await loadAll()){ renderSidebar(); renderView(); }
+  }, 250); // agrupa rajadas de eventos numa única atualização
+}
+function startRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = sb.channel('gofoods-live')
+    .on('postgres_changes', {event:'*', schema:'public', table:'orders'},        scheduleRefresh)
+    .on('postgres_changes', {event:'*', schema:'public', table:'departments'},   scheduleRefresh)
+    .on('postgres_changes', {event:'*', schema:'public', table:'notifications'}, scheduleRefresh)
+    .on('postgres_changes', {event:'*', schema:'public', table:'audit'},         scheduleRefresh)
+    .subscribe();
+}
+async function stopRealtime(){
+  if(!realtimeChannel) return;
+  await sb.removeChannel(realtimeChannel);
+  realtimeChannel = null;
 }
 
 /* ---------------------------------------------------------------
@@ -756,60 +834,43 @@ function itemDatalistHtml(id){
 }
 
 /* ---------------------------------------------------------------
-   SEED DATA — o app inicia vazio, sem exemplos fictícios
+   IDENTIDADE DO COLABORADOR — fica só neste aparelho
 --------------------------------------------------------------- */
-function buildSeedData(){
-  return {
-    departments: [],
-    employees: [],
-    orders: [],
-    notifications: [],
-    audit: [],
-    meta:{ nextCreated:false }
-  };
-}
-
-async function initDB(){
-  const loaded = await storageLoad();
-  if(loaded){ DB = loaded; }
-  else{
-    DB = buildSeedData();
-    await storageSave();
-  }
+function loadColabIdentity(){
   try{
-    const idRes = await window.storage.get(IDKEY, false);
-    if(idRes && idRes.value) colabIdentity = JSON.parse(idRes.value);
-  }catch(e){ /* no identity saved yet */ }
+    const raw = localStorage.getItem(IDKEY);
+    if(raw) colabIdentity = JSON.parse(raw);
+  }catch(e){ /* sem identidade salva ainda */ }
 }
-async function saveColabIdentity(){
-  try{ await window.storage.set(IDKEY, JSON.stringify(colabIdentity), false); }catch(e){ console.error('Falha ao salvar identidade', e); }
-}
-
-function pushAudit(action, orderId){
-  DB.audit.unshift({id:uid('AUD-'), user:'Facilities', action, timestamp:new Date().toISOString(), orderId});
-}
-function pushNotification(type, message){
-  DB.notifications.unshift({id:uid('NOT-'), type, message, timestamp:new Date().toISOString(), read:false});
+function saveColabIdentity(){
+  try{
+    if(colabIdentity) localStorage.setItem(IDKEY, JSON.stringify(colabIdentity));
+    else localStorage.removeItem(IDKEY);
+  }catch(e){ console.error('Falha ao salvar identidade', e); }
 }
 
 /* ---------------------------------------------------------------
-   AUTENTICAÇÃO — acesso restrito por usuário/senha compartilhados
+   AUDITORIA E NOTIFICAÇÕES — gravadas no banco
+   Gravam local na hora (resposta imediata) e o tempo real confirma.
 --------------------------------------------------------------- */
-const AUTHKEY = 'gofoods-auth-v1';
-const VALID_USER = 'Facilities';
-const VALID_PASS = 'GoFoods@2026';
+function pushAudit(action, orderId){
+  DB.audit.unshift({id:uid('AUD-'), user:'Facilities', action, timestamp:new Date().toISOString(), orderId});
+  sb.from('audit').insert({user_name:'Facilities', action, order_id:orderId||null})
+    .then(({error})=>{ if(error) console.error('Falha ao gravar histórico', error); });
+}
+function pushNotification(type, message){
+  DB.notifications.unshift({id:uid('NOT-'), type, message, timestamp:new Date().toISOString(), read:false});
+  sb.from('notifications').insert({type, message})
+    .then(({error})=>{ if(error) console.error('Falha ao gravar notificação', error); });
+}
 
+/* ---------------------------------------------------------------
+   AUTENTICAÇÃO — contas reais no Supabase (senha guardada com hash
+   no servidor, nunca no código do app)
+--------------------------------------------------------------- */
 async function checkStoredAuth(){
-  try{
-    const res = await window.storage.get(AUTHKEY, false);
-    return !!(res && res.value === 'ok');
-  }catch(e){ return false; }
-}
-async function setStoredAuth(){
-  try{ await window.storage.set(AUTHKEY, 'ok', false); }catch(e){ console.error('Falha ao salvar sessão', e); }
-}
-async function clearStoredAuth(){
-  try{ await window.storage.delete(AUTHKEY, false); }catch(e){ /* ignore */ }
+  const {data:{session}} = await sb.auth.getSession();
+  return !!session;
 }
 
 let loginBound = false;
@@ -823,15 +884,21 @@ function showLoginScreen(){
   if(!loginBound){
     loginBound = true;
     const tryLogin = async ()=>{
-      const u = userInput.value.trim();
-      const p = passInput.value;
-      if(u===VALID_USER && p===VALID_PASS){
-        errorEl.style.display = 'none';
-        await setStoredAuth();
-        await startApp();
-      } else {
+      const raw = userInput.value.trim();
+      const email = raw.includes('@') ? raw : `${raw}@${LOGIN_DOMAIN}`;
+      const password = passInput.value;
+      if(!raw || !password){ errorEl.textContent = 'Preencha usuário e senha.'; errorEl.style.display='block'; return; }
+      btn.disabled = true; btn.textContent = 'Entrando...';
+      const {error} = await sb.auth.signInWithPassword({email, password});
+      btn.disabled = false; btn.textContent = 'Entrar';
+      if(error){
+        errorEl.textContent = 'Usuário ou senha incorretos.';
         errorEl.style.display = 'block';
+        return;
       }
+      errorEl.style.display = 'none';
+      passInput.value = '';
+      await startApp();
     };
     btn.addEventListener('click', tryLogin);
     [userInput, passInput].forEach(inp=>inp.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryLogin(); }));
@@ -843,6 +910,9 @@ let eventsBound = false;
 async function startApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  loadColabIdentity();
+  await loadAll();
+  startRealtime();
   renderSidebar();
   if(!eventsBound){ eventsBound = true; bindGlobalEvents(); }
   navigate(currentRole==='admin' ? 'dashboard' : 'colab-home');
@@ -852,7 +922,6 @@ async function startApp(){
    BOOTSTRAP
 --------------------------------------------------------------- */
 async function boot(){
-  await initDB();
   const authed = await checkStoredAuth();
   if(authed){ await startApp(); }
   else{ showLoginScreen(); }
@@ -865,7 +934,8 @@ function bindGlobalEvents(){
   });
   document.getElementById('sidebarOverlay').addEventListener('click', closeSidebarMobile);
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-    await clearStoredAuth();
+    await stopRealtime();
+    await sb.auth.signOut();
     document.getElementById('loginUser').value = '';
     document.getElementById('loginPass').value = '';
     document.getElementById('loginError').style.display = 'none';
@@ -995,13 +1065,26 @@ function renderNotifDropdown(){
   dd.querySelectorAll('.notif-item').forEach(el=>{
     el.addEventListener('click', ()=>{
       const n = DB.notifications.find(x=>x.id===el.dataset.id);
-      if(n){ n.read=true; storageSave(); renderNotifDropdown(); renderSidebar(); }
+      if(n){ markNotificationRead(n); renderNotifDropdown(); renderSidebar(); }
     });
   });
   const markAll = document.getElementById('markAllReadBtn');
   if(markAll) markAll.addEventListener('click', ()=>{
-    DB.notifications.forEach(n=>n.read=true); storageSave(); renderNotifDropdown(); renderSidebar();
+    markAllNotificationsRead(); renderNotifDropdown(); renderSidebar();
   });
+}
+function markNotificationRead(n){
+  if(n.read) return;
+  n.read = true;
+  sb.from('notifications').update({read:true}).eq('id', n.id)
+    .then(({error})=>{ if(error) console.error('Falha ao marcar notificação', error); });
+}
+function markAllNotificationsRead(){
+  const pendentes = DB.notifications.filter(n=>!n.read);
+  if(!pendentes.length) return;
+  pendentes.forEach(n=>n.read = true);
+  sb.from('notifications').update({read:true}).in('id', pendentes.map(n=>n.id))
+    .then(({error})=>{ if(error) console.error('Falha ao marcar notificações', error); });
 }
 
 /* ---------------------------------------------------------------
@@ -1376,7 +1459,8 @@ function renderNovoPedido(root){
   document.getElementById('clearOrderBtn').addEventListener('click', ()=>{ newOrderItems=[]; renderView(); });
   renderOrderItemsBox();
 
-  document.getElementById('confirmOrderBtn').addEventListener('click', ()=>{
+  document.getElementById('confirmOrderBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('confirmOrderBtn');
     const employeeName = document.getElementById('f_employee_name').value.trim();
     const deptId = document.getElementById('f_department').value;
     if(!employeeName){ toast('Digite o nome do colaborador.','error'); return; }
@@ -1395,10 +1479,13 @@ function renderNovoPedido(root){
       statusHistory: [{status:'pendente', timestamp:new Date().toISOString(), user:employeeName}],
       createdAt: new Date().toISOString(),
     };
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    const {error} = await sb.from('orders').insert(orderToRow(order));
+    btn.disabled = false; btn.textContent = 'Confirmar pedido';
+    if(error){ dbError(error, 'registrar o pedido'); return; }
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${employeeName}`);
     pushAudit(`registrou o pedido ${order.id} para ${employeeName}`, order.id);
-    storageSave();
     newOrderItems = [];
     newOrderSuccess = order;
     renderView();
@@ -1545,16 +1632,28 @@ function updatePedidosTable(){
   });
 }
 
-function changeOrderStatus(orderId, newStatus, actor){
+async function changeOrderStatus(orderId, newStatus, actor){
   const o = DB.orders.find(x=>x.id===orderId);
   if(!o || o.status===newStatus) return;
-  const oldLabel = STATUS_META[o.status].label;
+  const oldStatus = o.status;
+  const oldLabel = STATUS_META[oldStatus].label;
+  const oldHistory = o.statusHistory;
+  const newHistory = [...oldHistory, {status:newStatus, timestamp:new Date().toISOString(), user: actor||'Facilities'}];
+  // atualiza a tela na hora e desfaz se o banco recusar
   o.status = newStatus;
-  o.statusHistory.push({status:newStatus, timestamp:new Date().toISOString(), user: actor||'Facilities'});
+  o.statusHistory = newHistory;
+  const {error} = await sb.from('orders')
+    .update({status:newStatus, status_history:newHistory})
+    .eq('id', orderId);
+  if(error){
+    o.status = oldStatus; o.statusHistory = oldHistory;
+    dbError(error, 'atualizar o pedido');
+    if(currentRoute==='pedidos') updatePedidosTable();
+    return;
+  }
   pushAudit(`alterou o pedido ${o.id} de "${oldLabel}" para "${STATUS_META[newStatus].label}"`, o.id);
   if(newStatus==='entregue') pushNotification('pedido_entregue', `Pedido ${o.id} foi entregue`);
   if(newStatus==='nao_retirado') pushNotification('pedido_nao_retirado', `Pedido ${o.id} não foi retirado`);
-  storageSave();
   toast(`Pedido ${o.id} atualizado para "${STATUS_META[newStatus].label}"`, 'success');
 }
 
@@ -1624,17 +1723,18 @@ function openOrderModal(orderId){
 
   document.getElementById('closeOrderModal').addEventListener('click', closeModal);
   const advBtn = document.getElementById('advanceOrderBtn');
-  if(advBtn) advBtn.addEventListener('click', ()=>{
+  if(advBtn) advBtn.addEventListener('click', async ()=>{
     if(flowIdx<STATUS_FLOW.length-1){
-      changeOrderStatus(o.id, STATUS_FLOW[flowIdx+1]);
+      advBtn.disabled = true;
+      await changeOrderStatus(o.id, STATUS_FLOW[flowIdx+1]);
       closeModal(); openOrderModal(o.id); renderSidebar();
       if(currentRoute==='pedidos') updatePedidosTable();
     }
   });
   const cancelBtn = document.getElementById('cancelOrderBtn');
   if(cancelBtn) cancelBtn.addEventListener('click', ()=>{
-    confirmDialog('Cancelar pedido?', `Tem certeza que deseja cancelar o pedido ${o.id}? Essa ação não pode ser desfeita.`, ()=>{
-      changeOrderStatus(o.id, 'cancelado');
+    confirmDialog('Cancelar pedido?', `Tem certeza que deseja cancelar o pedido ${o.id}? Essa ação não pode ser desfeita.`, async ()=>{
+      await changeOrderStatus(o.id, 'cancelado');
       closeModal();
       if(currentRoute==='pedidos') updatePedidosTable();
       renderSidebar();
@@ -1696,9 +1796,12 @@ function renderDepartamentos(root){
       toast(`Não é possível excluir "${d.name}": há ${orderCount} pedido(s) associado(s) a este departamento.`,'error');
       return;
     }
-    confirmDialog('Excluir departamento?', `Tem certeza que deseja excluir "${d.name}"? Essa ação não pode ser desfeita.`, ()=>{
+    confirmDialog('Excluir departamento?', `Tem certeza que deseja excluir "${d.name}"? Essa ação não pode ser desfeita.`, async ()=>{
+      const {error} = await sb.from('departments').delete().eq('id', d.id);
+      if(error){ dbError(error, 'excluir o departamento'); return; }
       DB.departments = DB.departments.filter(x=>x.id!==d.id);
-      storageSave(); toast('Departamento excluído.','success'); renderView();
+      pushAudit(`excluiu o departamento "${d.name}"`, null);
+      toast('Departamento excluído.','success'); renderView();
     });
   }));
 }
@@ -1740,12 +1843,28 @@ function openDeptModal(deptId){
   `);
   document.getElementById('closeDeptModal').addEventListener('click', closeModal);
   document.getElementById('cancelDeptModal').addEventListener('click', closeModal);
-  document.getElementById('saveDeptModal').addEventListener('click', ()=>{
+  document.getElementById('saveDeptModal').addEventListener('click', async ()=>{
+    const btn = document.getElementById('saveDeptModal');
     const name = document.getElementById('df_name').value.trim();
     if(!name){ toast('Informe o nome do departamento.','error'); return; }
-    if(d){ d.name=name; toast('Departamento atualizado.','success'); }
-    else{ DB.departments.push({id:uid('DEP-'), name}); toast('Departamento criado.','success'); }
-    storageSave(); closeModal(); renderView();
+    btn.disabled = true;
+    if(d){
+      const {error} = await sb.from('departments').update({name}).eq('id', d.id);
+      btn.disabled = false;
+      if(error){ dbError(error, 'salvar o departamento'); return; }
+      d.name = name;
+      pushAudit(`renomeou um departamento para "${name}"`, null);
+      toast('Departamento atualizado.','success');
+    } else {
+      const novo = {id:uid('DEP-'), name};
+      const {error} = await sb.from('departments').insert(novo);
+      btn.disabled = false;
+      if(error){ dbError(error, 'criar o departamento'); return; }
+      DB.departments.push(novo);
+      pushAudit(`criou o departamento "${name}"`, null);
+      toast('Departamento criado.','success');
+    }
+    closeModal(); renderView();
   });
 }
 
@@ -1929,9 +2048,9 @@ function renderNotificacoesView(root){
         </div>`).join('') : emptyState('🔕','Nenhuma notificação','Você está em dia!')}
     </div>
   `;
-  document.getElementById('markAllReadFull').addEventListener('click', ()=>{ DB.notifications.forEach(n=>n.read=true); storageSave(); renderView(); renderSidebar(); });
+  document.getElementById('markAllReadFull').addEventListener('click', ()=>{ markAllNotificationsRead(); renderView(); renderSidebar(); });
   root.querySelectorAll('.notif-item').forEach(el=>el.addEventListener('click', ()=>{
-    const n = DB.notifications.find(x=>x.id===el.dataset.id); if(n){ n.read=true; storageSave(); renderView(); renderSidebar(); }
+    const n = DB.notifications.find(x=>x.id===el.dataset.id); if(n){ markNotificationRead(n); renderView(); renderSidebar(); }
   }));
 }
 
@@ -2086,7 +2205,8 @@ function renderColabPedir(root){
     renderColabCart();
   });
   renderColabCart();
-  document.getElementById('colabConfirmBtn').addEventListener('click', ()=>{
+  document.getElementById('colabConfirmBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('colabConfirmBtn');
     if(!colabCart.length){ toast('Adicione ao menos um item.','error'); return; }
     const total = colabCart.reduce((s,i)=>s+i.price*i.qty,0);
     const order = {
@@ -2098,10 +2218,13 @@ function renderColabPedir(root){
       statusHistory:[{status:'pendente', timestamp:new Date().toISOString(), user:colabIdentity.name}],
       createdAt:new Date().toISOString(),
     };
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const {error} = await sb.from('orders').insert(orderToRow(order));
+    btn.disabled = false; btn.textContent = 'Confirmar pedido';
+    if(error){ dbError(error, 'registrar o pedido'); return; }
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${colabIdentity.name}`);
     pushAudit(`registrou o pedido ${order.id} para ${colabIdentity.name}`, order.id);
-    storageSave();
     colabCart = [];
     toast('Pedido registrado com sucesso!','success');
     navigate('colab-meus');
@@ -2135,6 +2258,15 @@ function renderColabMeus(root){
       </div>
     `).join('') : emptyState('📭','Você ainda não fez pedidos','Vá até "Fazer pedido" para pedir seu primeiro lanche.')}
   `;
+}
+
+/* ---------------------------------------------------------------
+   PWA — permite instalar o app na tela de início do celular
+--------------------------------------------------------------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service worker não registrado', e));
+  });
 }
 
 boot();
