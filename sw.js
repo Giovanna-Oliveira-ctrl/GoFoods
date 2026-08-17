@@ -3,7 +3,7 @@
    Os dados vêm sempre do Supabase pela rede: nada de pedido é
    servido do cache, para ninguém ver informação desatualizada. */
 
-const CACHE = 'gofoods-shell-v1';
+const CACHE = 'gofoods-shell-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e)=>{
