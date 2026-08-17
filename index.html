@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   /* ---- GoFoods design tokens ---- */
@@ -170,9 +169,9 @@ a{color:inherit;text-decoration:none;}
   display:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);
   background:var(--surface);align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
 }
-.topbar-title{display:flex;flex-direction:column;margin-right:auto;}
-.topbar-title h1{font-size:19px;font-weight:800;}
-.topbar-title span{font-size:12.5px;color:var(--ink-soft);font-weight:500;}
+.topbar-title{display:flex;flex-direction:column;margin-right:auto;min-width:0;overflow:hidden;}
+.topbar-title h1{font-size:19px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topbar-title span{font-size:12.5px;color:var(--ink-soft);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 .search-box{
   display:flex;align-items:center;gap:8px;background:var(--surface-2);
@@ -276,6 +275,7 @@ a{color:inherit;text-decoration:none;}
 .panel-head h3{font-size:15px;font-weight:800;}
 .panel-head .p-tag{font-size:11.5px;color:var(--ink-soft);font-weight:600;}
 .charts-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:14px;}
+.charts-grid-rev{grid-template-columns:1fr 1.4fr;}
 .charts-grid2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
 .chart-wrap{position:relative;height:230px;}
 .chart-wrap.tall{height:280px;}
@@ -313,7 +313,7 @@ a{color:inherit;text-decoration:none;}
 
 /* ---------- tables ---------- */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--line);background:var(--surface);}
-table.data-table{width:100%;border-collapse:collapse;min-width:760px;}
+table.data-table{width:100%;border-collapse:collapse;min-width:640px;}
 .data-table thead th{
   text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   color:var(--ink-faint);padding:13px 16px;border-bottom:1px solid var(--line);background:var(--surface-2);
@@ -509,12 +509,22 @@ table.data-table{width:100%;border-collapse:collapse;min-width:760px;}
   display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px;}
 
 /* ---------- responsive ---------- */
+/* Notebook / laptop screens (~1024–1366px): tighten spacing, no need for hamburger yet */
+@media (max-width: 1320px){
+  :root{ --sidebar-w:236px; }
+  .view{ padding:22px 22px 50px; }
+  .kpi-grid{ grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); }
+  .nav-item{ font-size:13.5px; }
+}
 @media (max-width: 1080px){
   .charts-grid{grid-template-columns:1fr;}
+  .charts-grid-rev{grid-template-columns:1fr;}
   .charts-grid2{grid-template-columns:1fr 1fr;}
   .form-grid{grid-template-columns:1fr;}
 }
+/* Tablets and small notebooks: switch to the off-canvas sidebar */
 @media (max-width: 900px){
+  :root{ --sidebar-w:264px; }
   .sidebar{transform:translateX(-100%);box-shadow:var(--shadow-lg);}
   .sidebar.open{transform:translateX(0);}
   .sidebar-overlay.show{display:block;}
@@ -522,14 +532,34 @@ table.data-table{width:100%;border-collapse:collapse;min-width:760px;}
   .hamburger{display:flex;}
   .search-box{display:none;}
   .charts-grid2{grid-template-columns:1fr;}
+  .item-picker-row{grid-template-columns:1fr 1fr;}
+  .item-picker-row button{grid-column:1/-1;}
 }
+/* Phones */
 @media (max-width: 620px){
-  .topbar{padding:0 16px;gap:10px;}
-  .view{padding:18px 16px 48px;}
+  .topbar{padding:0 14px;gap:8px;}
+  .view{padding:16px 14px 44px;}
   .profile-chip .p-name,.profile-chip .p-role{display:none;}
   .profile-chip{padding:6px;}
-  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
   .notif-dropdown{right:10px;left:10px;width:auto;}
+  .item-picker-row{grid-template-columns:1fr;}
+  .toolbar{gap:8px;}
+  .field-inline{flex:1 1 auto;min-width:0;}
+  .view-head{gap:12px;}
+  .view-head h2{font-size:20px;}
+  .modal-body{padding:16px;}
+  .modal-head{padding:16px 18px;}
+  .modal-foot{padding:14px 16px;flex-wrap:wrap;}
+  .modal-foot .btn{flex:1;}
+  .colab-tiles{grid-template-columns:1fr 1fr;}
+  .card-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+  .login-card{padding:26px 22px;}
+}
+/* Very small phones */
+@media (max-width: 380px){
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+  .colab-tiles{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -614,7 +644,7 @@ window.__GC_BOOT__ = true;
 /* ---------------------------------------------------------------
    STORAGE — dados compartilhados entre todos os usuários do app
 --------------------------------------------------------------- */
-const SKEY = 'gofoods-data-v2'; // versão incrementada para começar com uma base 100% limpa
+const SKEY = 'gofoods-data-v3'; // versão incrementada para limpar notificações e remover o catálogo de produtos
 const IDKEY = 'gofoods-colab-identity-v1'; // identidade pessoal (não compartilhada) de quem usa o modo Colaborador
 let DB = null; // { orders, employees, departments, products, categories, notifications, audit, meta }
 
@@ -634,15 +664,12 @@ async function storageSave(){
 /* ---------------------------------------------------------------
    CONSTANTES
 --------------------------------------------------------------- */
-const CATEGORIES = ['Salgados','Sanduíches','Doces','Frutas','Bebidas','Outros'];
-const STATUS_FLOW = ['pendente','preparo','pronto','entregue'];
+const STATUS_FLOW = ['pendente','entregue'];
 const STATUS_META = {
-  pendente:   {label:'Pendente',              emoji:'🟡', cls:'pending'},
-  preparo:    {label:'Em preparo',             emoji:'🔵', cls:'prep'},
-  pronto:     {label:'Pronto para retirada',   emoji:'🟣', cls:'ready'},
-  entregue:   {label:'Entregue',               emoji:'🟢', cls:'delivered'},
-  cancelado:  {label:'Cancelado',              emoji:'🔴', cls:'cancelled'},
-  nao_retirado:{label:'Não retirado',          emoji:'⚫', cls:'notpicked'},
+  pendente:   {label:'Pendente',       emoji:'🟡', cls:'pending'},
+  entregue:   {label:'Entregue',       emoji:'🟢', cls:'delivered'},
+  cancelado:  {label:'Cancelado',      emoji:'🔴', cls:'cancelled'},
+  nao_retirado:{label:'Não retirado',  emoji:'⚫', cls:'notpicked'},
 };
 const PAYMENT_METHODS = ['Benefício empresa','Desconto em folha','Dinheiro','Não se aplica'];
 
@@ -650,9 +677,7 @@ const NAV_ITEMS = [
   {id:'dashboard', label:'Dashboard', icon:'🏠'},
   {id:'novo-pedido', label:'Novo Pedido', icon:'🥪'},
   {id:'pedidos', label:'Pedidos', icon:'📋'},
-  {id:'cardapio', label:'Cardápio', icon:'🍔'},
   {id:'departamentos', label:'Departamentos', icon:'🏢'},
-  {id:'colaboradores', label:'Colaboradores', icon:'👥'},
   {id:'relatorios', label:'Relatórios', icon:'📊'},
   {id:'notificacoes', label:'Notificações', icon:'🔔'},
   {id:'auditoria', label:'Histórico', icon:'🕓'},
@@ -662,7 +687,6 @@ const COLAB_NAV_ITEMS = [
   {id:'colab-home', label:'Início', icon:'🏠'},
   {id:'colab-pedir', label:'Fazer pedido', icon:'🥪'},
   {id:'colab-meus', label:'Meus pedidos', icon:'📋'},
-  {id:'colab-cardapio', label:'Cardápio', icon:'🍔'},
 ];
 
 let CHARTS = {}; // holds Chart.js instances so we can destroy/rebuild
@@ -671,7 +695,7 @@ let currentRoute = 'dashboard';
 let colabIdentity = null; // {name, department} — identidade de quem está usando o modo Colaborador
 let dashboardFilter = 'today'; // today | week | month | custom
 let dashboardCustomRange = null;
-let ordersFilters = {q:'', dept:'', status:'', product:'', from:'', to:'', page:1};
+let ordersFilters = {q:'', dept:'', status:'', from:'', to:'', page:1};
 let notifOpen = false;
 
 /* ---------------------------------------------------------------
@@ -717,7 +741,6 @@ function departmentName(id){
   const d = DB.departments.find(x=>x.id===id);
   return d ? d.name : '—';
 }
-function productById(id){ return DB.products.find(p=>p.id===id); }
 
 /* ---------------------------------------------------------------
    SEED DATA — o app inicia vazio, sem exemplos fictícios
@@ -726,11 +749,9 @@ function buildSeedData(){
   return {
     departments: [],
     employees: [],
-    products: [],
     orders: [],
     notifications: [],
     audit: [],
-    categories: CATEGORIES,
     meta:{ nextCreated:false }
   };
 }
@@ -858,6 +879,7 @@ function closeSidebarMobile(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('show');
 }
+
 function renderSidebar(){
   const nav = document.getElementById('sidebarNav');
   const items = currentRole==='admin' ? NAV_ITEMS : COLAB_NAV_ITEMS;
@@ -887,9 +909,7 @@ const ROUTE_TITLES = {
   'dashboard': ['Dashboard','Confira o resumo dos pedidos de lanches.'],
   'novo-pedido': ['Novo Pedido','Registre um novo pedido de lanche.'],
   'pedidos': ['Pedidos','Acompanhe e gerencie todos os pedidos.'],
-  'cardapio': ['Cardápio','Gerencie os produtos disponíveis.'],
   'departamentos': ['Departamentos','Gerencie os setores da empresa.'],
-  'colaboradores': ['Colaboradores','Veja quem já fez pedidos e o histórico de consumo por pessoa.'],
   'relatorios': ['Relatórios','Gere relatórios de consumo, custos e desperdício.'],
   'notificacoes': ['Notificações','Acompanhe os avisos do sistema.'],
   'auditoria': ['Histórico e Auditoria','Veja todas as ações realizadas no sistema.'],
@@ -897,7 +917,6 @@ const ROUTE_TITLES = {
   'colab-home': ['Olá! 👋','O que você gostaria de fazer hoje?'],
   'colab-pedir': ['Fazer pedido','Escolha seus lanches favoritos.'],
   'colab-meus': ['Meus pedidos','Acompanhe o status dos seus pedidos.'],
-  'colab-cardapio': ['Cardápio','Confira o que está disponível hoje.'],
 };
 
 function navigate(route){
@@ -917,9 +936,7 @@ function renderView(){
     'dashboard': renderDashboard,
     'novo-pedido': renderNovoPedido,
     'pedidos': renderPedidos,
-    'cardapio': renderCardapio,
     'departamentos': renderDepartamentos,
-    'colaboradores': renderColaboradores,
     'relatorios': renderRelatorios,
     'notificacoes': renderNotificacoesView,
     'auditoria': renderAuditoria,
@@ -927,7 +944,6 @@ function renderView(){
     'colab-home': renderColabHome,
     'colab-pedir': renderColabPedir,
     'colab-meus': renderColabMeus,
-    'colab-cardapio': renderColabCardapio,
   };
   const fn = renderers[currentRoute];
   root.innerHTML = '<div class="view"></div>';
@@ -946,7 +962,7 @@ function renderNotifDropdown(){
   const dd = document.getElementById('notifDropdown');
   dd.className = 'notif-dropdown';
   const list = DB.notifications.slice(0,8);
-  const NOTIF_ICONS = {novo_pedido:'🥪', pedido_entregue:'🟢', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
+  const NOTIF_ICONS = {novo_pedido:'🥪', pedido_entregue:'🟢', produto_indisponivel:'🚫', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
   dd.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px 10px;">
       <strong style="font-size:13.5px;">Notificações</strong>
@@ -1057,7 +1073,7 @@ function renderDashboard(root){
       </div>
     </div>
 
-    <div class="charts-grid" style="grid-template-columns:1fr 1.4fr;">
+    <div class="charts-grid charts-grid-rev">
       <div class="panel">
         <div class="panel-head"><h3>Pedidos por departamento</h3></div>
         <div class="chart-wrap"><canvas id="chartByDept"></canvas></div>
@@ -1300,13 +1316,11 @@ function renderNovoPedido(root){
         <div style="margin-top:18px;">
           <label style="font-size:12.5px;font-weight:700;color:var(--ink-soft);">Itens do pedido</label>
           <div class="item-picker-row" style="margin-top:8px;">
-            <div class="form-field"><label>Produto</label>
-              <select id="f_product">
-                ${DB.products.filter(p=>p.stock>0).map(p=>`<option value="${p.id}">${escapeHtml(p.name)} — ${fmtBRL(p.price)}</option>`).join('')}
-              </select>
+            <div class="form-field"><label>Item</label>
+              <input type="text" id="f_item_name" placeholder="Ex: Sanduíche natural">
             </div>
+            <div class="form-field"><label>Preço (R$)</label><input type="number" id="f_item_price" min="0" step="0.10" placeholder="0,00"></div>
             <div class="form-field"><label>Quantidade</label><input type="number" id="f_qty" min="1" value="1"></div>
-            <div></div>
             <button type="button" class="btn btn-soft" id="addItemBtn">+ Adicionar</button>
           </div>
           <div class="order-items-box" id="orderItemsBox"></div>
@@ -1328,14 +1342,16 @@ function renderNovoPedido(root){
   `;
 
   document.getElementById('addItemBtn').addEventListener('click', ()=>{
-    const pid = document.getElementById('f_product').value;
+    const name = document.getElementById('f_item_name').value.trim();
+    const price = parseFloat(document.getElementById('f_item_price').value);
     const qty = parseInt(document.getElementById('f_qty').value)||1;
-    const prod = productById(pid);
-    if(!prod){ toast('Selecione um produto disponível.','error'); return; }
-    const existing = newOrderItems.find(i=>i.productId===pid);
-    const alreadyInCart = existing ? existing.qty : 0;
-    if(alreadyInCart + qty > prod.stock){ toast(`Estoque insuficiente. Disponível: ${prod.stock - alreadyInCart}`,'error'); return; }
-    if(existing) existing.qty += qty; else newOrderItems.push({productId:pid, name:prod.name, price:prod.price, qty});
+    if(!name){ toast('Digite o nome do item.','error'); return; }
+    if(isNaN(price) || price<0){ toast('Informe um preço válido.','error'); return; }
+    const existing = newOrderItems.find(i=>i.name.toLowerCase()===name.toLowerCase() && i.price===price);
+    if(existing) existing.qty += qty; else newOrderItems.push({name, price, qty});
+    document.getElementById('f_item_name').value = '';
+    document.getElementById('f_item_price').value = '';
+    document.getElementById('f_qty').value = '1';
     renderOrderItemsBox();
   });
   document.getElementById('clearOrderBtn').addEventListener('click', ()=>{ newOrderItems=[]; renderView(); });
@@ -1347,8 +1363,6 @@ function renderNovoPedido(root){
     if(!employeeName){ toast('Digite o nome do colaborador.','error'); return; }
     if(!deptId){ toast('Selecione o departamento.','error'); return; }
     if(!newOrderItems.length){ toast('Adicione ao menos um item ao pedido.','error'); return; }
-    const stockError = validateCartAgainstStock(newOrderItems);
-    if(stockError){ toast(stockError,'error'); return; }
     const date = document.getElementById('f_date').value;
     const time = document.getElementById('f_time').value;
     const total = newOrderItems.reduce((s,i)=>s+i.price*i.qty,0);
@@ -1362,7 +1376,6 @@ function renderNovoPedido(root){
       statusHistory: [{status:'pendente', timestamp:new Date().toISOString(), user:employeeName}],
       createdAt: new Date().toISOString(),
     };
-    commitStockForItems(newOrderItems);
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${employeeName}`);
     pushAudit(`registrou o pedido ${order.id} para ${employeeName}`, order.id);
@@ -1399,11 +1412,11 @@ function filteredOrders(){
   return DB.orders.filter(o=>{
     if(ordersFilters.q){
       const q = ordersFilters.q.toLowerCase();
-      if(!(o.employeeName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q))) return false;
+      const matchesItem = o.items.some(it=>it.name.toLowerCase().includes(q));
+      if(!(o.employeeName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || matchesItem)) return false;
     }
     if(ordersFilters.dept && o.department!==ordersFilters.dept) return false;
     if(ordersFilters.status && o.status!==ordersFilters.status) return false;
-    if(ordersFilters.product && !o.items.some(it=>it.productId===ordersFilters.product)) return false;
     if(ordersFilters.from && o.date < ordersFilters.from) return false;
     if(ordersFilters.to && o.date > ordersFilters.to) return false;
     return true;
@@ -1417,10 +1430,9 @@ function renderPedidos(root){
       <button class="btn btn-primary" id="goNewOrder">+ Novo pedido</button>
     </div>
     <div class="toolbar">
-      <div class="field-inline"><span>🔎</span><input type="text" id="filterQ" placeholder="Buscar por nome ou nº pedido" value="${escapeHtml(ordersFilters.q)}"></div>
+      <div class="field-inline"><span>🔎</span><input type="text" id="filterQ" placeholder="Buscar por nome, item ou nº pedido" value="${escapeHtml(ordersFilters.q)}"></div>
       <div class="field-inline"><span>🏢</span><select id="filterDept"><option value="">Todos os deptos</option>${DB.departments.map(d=>`<option value="${d.id}" ${ordersFilters.dept===d.id?'selected':''}>${escapeHtml(d.name)}</option>`).join('')}</select></div>
       <div class="field-inline"><span>🏷️</span><select id="filterStatus"><option value="">Todos os status</option>${Object.entries(STATUS_META).map(([k,v])=>`<option value="${k}" ${ordersFilters.status===k?'selected':''}>${v.emoji} ${v.label}</option>`).join('')}</select></div>
-      <div class="field-inline"><span>🍔</span><select id="filterProduct"><option value="">Todos os produtos</option>${DB.products.map(p=>`<option value="${p.id}" ${ordersFilters.product===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
       <div class="field-inline"><span>De</span><input type="date" id="filterFrom" value="${ordersFilters.from}"></div>
       <div class="field-inline"><span>Até</span><input type="date" id="filterTo" value="${ordersFilters.to}"></div>
       <button class="btn btn-ghost btn-sm" id="clearFilters">Limpar filtros</button>
@@ -1436,11 +1448,10 @@ function renderPedidos(root){
   });
   document.getElementById('filterDept').addEventListener('change', e=>{ ordersFilters.dept=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('filterStatus').addEventListener('change', e=>{ ordersFilters.status=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
-  document.getElementById('filterProduct').addEventListener('change', e=>{ ordersFilters.product=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('filterFrom').addEventListener('change', e=>{ ordersFilters.from=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('filterTo').addEventListener('change', e=>{ ordersFilters.to=e.target.value; ordersFilters.page=1; updatePedidosTable(); });
   document.getElementById('clearFilters').addEventListener('click', ()=>{
-    ordersFilters={q:'',dept:'',status:'',product:'',from:'',to:'',page:1};
+    ordersFilters={q:'',dept:'',status:'',from:'',to:'',page:1};
     const gs = document.getElementById('globalSearch'); if(gs) gs.value='';
     renderView();
   });
@@ -1464,7 +1475,7 @@ function updatePedidosTable(){
       ${pageItems.length ? `
       <table class="data-table">
         <thead><tr>
-          <th>Pedido</th><th>Colaborador</th><th>Departamento</th><th>Lanche</th><th>Data</th><th>Horário</th><th>Valor</th><th>Status</th>
+          <th>Pedido</th><th>Colaborador</th><th>Departamento</th><th>Lanche</th><th>Data</th><th>Valor</th><th>Status</th>
         </tr></thead>
         <tbody>
           ${pageItems.map(o=>`
@@ -1474,7 +1485,6 @@ function updatePedidosTable(){
               <td>${escapeHtml(departmentName(o.department))}</td>
               <td>${escapeHtml(o.items.map(i=>i.qty+'x '+i.name).join(', '))}</td>
               <td>${fmtDate(o.date)}<div class="cell-sub">${o.time}</div></td>
-              <td>${o.time}</td>
               <td class="cell-strong">${fmtBRL(o.total)}</td>
               <td>
                 <select class="status-select" data-order="${o.id}" onclick="event.stopPropagation();">
@@ -1505,7 +1515,6 @@ function updatePedidosTable(){
           updatePedidosTable();
           renderSidebar();
         });
-        // se o usuário desistir, volta o select para o status atual
         const o = DB.orders.find(x=>x.id===orderId);
         if(o) sel.value = o.status;
       } else {
@@ -1517,36 +1526,10 @@ function updatePedidosTable(){
   });
 }
 
-function validateCartAgainstStock(items){
-  for(const it of items){
-    const p = productById(it.productId);
-    if(!p) return `"${it.name}" não está mais disponível.`;
-    if(it.qty > p.stock) return `Estoque insuficiente para "${it.name}". Disponível: ${p.stock}.`;
-  }
-  return null;
-}
-function restoreStockForOrder(o){
-  o.items.forEach(it=>{
-    const p = productById(it.productId);
-    if(p) p.stock += it.qty;
-  });
-}
-const LOW_STOCK_THRESHOLD = 5;
-function commitStockForItems(items){
-  items.forEach(it=>{
-    const p = productById(it.productId);
-    if(!p) return;
-    p.stock = Math.max(0, p.stock - it.qty);
-    if(p.stock===0) pushNotification('estoque_baixo', `"${p.name}" está esgotado.`);
-    else if(p.stock<=LOW_STOCK_THRESHOLD) pushNotification('estoque_baixo', `Estoque baixo de "${p.name}": ${p.stock} unidade(s) restante(s).`);
-  });
-}
-
 function changeOrderStatus(orderId, newStatus, actor){
   const o = DB.orders.find(x=>x.id===orderId);
   if(!o || o.status===newStatus) return;
   const oldLabel = STATUS_META[o.status].label;
-  if(newStatus==='cancelado' && o.status!=='cancelado') restoreStockForOrder(o);
   o.status = newStatus;
   o.statusHistory.push({status:newStatus, timestamp:new Date().toISOString(), user: actor||'Facilities'});
   pushAudit(`alterou o pedido ${o.id} de "${oldLabel}" para "${STATUS_META[newStatus].label}"`, o.id);
@@ -1657,93 +1640,6 @@ function confirmDialog(title, message, onConfirm){
 }
 
 /* ---------------------------------------------------------------
-   CARDÁPIO (catálogo de produtos)
---------------------------------------------------------------- */
-let cardapioFilterCat = '';
-function renderCardapio(root){
-  const products = DB.products.filter(p=> !cardapioFilterCat || p.category===cardapioFilterCat);
-  root.innerHTML = `
-    <div class="view-head">
-      <div><h2>Cardápio</h2><div class="view-sub">Gerencie os produtos disponíveis para pedidos.</div></div>
-      <button class="btn btn-primary" id="addProductBtn">+ Adicionar produto</button>
-    </div>
-    <div class="toolbar">
-      <div class="pill-group">
-        <button data-c="" class="${cardapioFilterCat===''?'active':''}">Todos</button>
-        ${CATEGORIES.map(c=>`<button data-c="${c}" class="${cardapioFilterCat===c?'active':''}">${c}</button>`).join('')}
-      </div>
-    </div>
-    ${products.length ? `<div class="card-grid">${products.map(p=>productCardHtml(p)).join('')}</div>` :
-      emptyState('🍽️','Nenhum produto nessa categoria','Adicione um novo produto ou escolha outra categoria.')}
-  `;
-  root.querySelectorAll('.pill-group button').forEach(b=>b.addEventListener('click', ()=>{ cardapioFilterCat=b.dataset.c; renderView(); }));
-  document.getElementById('addProductBtn').addEventListener('click', ()=>openProductModal());
-  root.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openProductModal(b.dataset.edit)));
-  root.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
-    const p = productById(b.dataset.del);
-    confirmDialog('Excluir produto?', `Tem certeza que deseja excluir "${p.name}" do cardápio?`, ()=>{
-      DB.products = DB.products.filter(x=>x.id!==p.id);
-      storageSave(); toast('Produto excluído.','success'); renderView();
-    });
-  }));
-}
-function productCardHtml(p){
-  const lowStock = p.stock>0 && p.stock<=LOW_STOCK_THRESHOLD;
-  return `<div class="prod-card">
-    <span class="prod-cat">${p.category}</span>
-    <div class="prod-name">${escapeHtml(p.name)}</div>
-    <div class="prod-desc">${escapeHtml(p.description||'')}</div>
-    <div class="prod-foot">
-      <div>
-        <div class="prod-price">${fmtBRL(p.price)}</div>
-        <div class="prod-stock" style="${lowStock?'color:var(--r-cancel);font-weight:700;':''}">${p.stock} em estoque${lowStock?' · baixo':''}</div>
-      </div>
-    </div>
-    <div class="prod-actions">
-      <button class="btn btn-ghost btn-sm" data-edit="${p.id}">Editar</button>
-      <button class="btn btn-danger btn-sm" data-del="${p.id}">Excluir</button>
-    </div>
-  </div>`;
-}
-function openProductModal(productId){
-  const p = productId ? productById(productId) : null;
-  openModal(`
-    <div class="modal-head"><h3>${p?'Editar produto':'Adicionar produto'}</h3><button class="modal-close" id="closeProdModal">✕</button></div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-field full"><label>Nome</label><input type="text" id="pf_name" value="${p?escapeHtml(p.name):''}" placeholder="Ex: Sanduíche Natural"></div>
-        <div class="form-field"><label>Categoria</label>
-          <select id="pf_cat">${CATEGORIES.map(c=>`<option value="${c}" ${p&&p.category===c?'selected':''}>${c}</option>`).join('')}</select>
-        </div>
-        <div class="form-field"><label>Preço (R$)</label><input type="number" step="0.10" min="0" id="pf_price" value="${p?p.price:''}"></div>
-        <div class="form-field full"><label>Descrição</label><textarea id="pf_desc" placeholder="Descreva o item">${p?escapeHtml(p.description||''):''}</textarea></div>
-        <div class="form-field"><label>Quantidade disponível</label><input type="number" min="0" id="pf_stock" value="${p?p.stock:0}"></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" id="cancelProdModal">Cancelar</button>
-      <button class="btn btn-primary" id="saveProdModal">${p?'Salvar alterações':'Adicionar produto'}</button>
-    </div>
-  `);
-  document.getElementById('closeProdModal').addEventListener('click', closeModal);
-  document.getElementById('cancelProdModal').addEventListener('click', closeModal);
-  document.getElementById('saveProdModal').addEventListener('click', ()=>{
-    const name = document.getElementById('pf_name').value.trim();
-    const price = parseFloat(document.getElementById('pf_price').value);
-    if(!name){ toast('Informe o nome do produto.','error'); return; }
-    if(isNaN(price) || price<0){ toast('Informe um preço válido.','error'); return; }
-    const data = {
-      name, category: document.getElementById('pf_cat').value,
-      price, description: document.getElementById('pf_desc').value.trim(),
-      stock: parseInt(document.getElementById('pf_stock').value)||0,
-    };
-    if(p){ Object.assign(p, data); toast('Produto atualizado.','success'); }
-    else{ DB.products.push({id:uid('PRD-'), ...data}); toast('Produto adicionado ao cardápio.','success'); }
-    storageSave(); closeModal(); renderView();
-  });
-}
-
-/* ---------------------------------------------------------------
    DEPARTAMENTOS
 --------------------------------------------------------------- */
 function renderDepartamentos(root){
@@ -1762,30 +1658,12 @@ function renderDepartamentos(root){
             <div>${orders.length} pedido(s)</div>
             <div class="cell-strong" style="margin-top:2px;font-size:15px;">${fmtBRL(cost)}</div>
           </div>
-          <div class="prod-actions">
-            <button class="btn btn-ghost btn-sm" data-edit-dept="${d.id}">Editar</button>
-            <button class="btn btn-danger btn-sm" data-del-dept="${d.id}">Excluir</button>
-          </div>
         </div>`;
       }).join('')}
     </div>
   `;
   document.getElementById('addDeptBtn').addEventListener('click', ()=>openDeptModal());
   root.querySelectorAll('[data-dept-detail]').forEach(el=>el.addEventListener('click', ()=>openDeptOrdersModal(el.dataset.deptDetail)));
-  root.querySelectorAll('[data-edit-dept]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); openDeptModal(b.dataset.editDept); }));
-  root.querySelectorAll('[data-del-dept]').forEach(b=>b.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    const d = DB.departments.find(x=>x.id===b.dataset.delDept);
-    const orderCount = DB.orders.filter(o=>o.department===d.id).length;
-    if(orderCount>0){
-      toast(`Não é possível excluir "${d.name}": há ${orderCount} pedido(s) associado(s) a este departamento.`,'error');
-      return;
-    }
-    confirmDialog('Excluir departamento?', `Tem certeza que deseja excluir "${d.name}"? Essa ação não pode ser desfeita.`, ()=>{
-      DB.departments = DB.departments.filter(x=>x.id!==d.id);
-      storageSave(); toast('Departamento excluído.','success'); renderView();
-    });
-  }));
 }
 function openDeptOrdersModal(deptId){
   const d = DB.departments.find(x=>x.id===deptId);
@@ -1835,69 +1713,6 @@ function openDeptModal(deptId){
 }
 
 /* ---------------------------------------------------------------
-   COLABORADORES (visão consolidada por pessoa)
---------------------------------------------------------------- */
-function renderColaboradores(root){
-  const byEmployee = {};
-  DB.orders.forEach(o=>{
-    if(!byEmployee[o.employeeId]){
-      byEmployee[o.employeeId] = {id:o.employeeId, name:o.employeeName, department:o.department, count:0, value:0, lastDate:o.date};
-    }
-    const e = byEmployee[o.employeeId];
-    e.count++;
-    if(o.status!=='cancelado') e.value += o.total;
-    if(o.date >= e.lastDate){ e.lastDate = o.date; e.department = o.department; }
-  });
-  const list = Object.values(byEmployee).sort((a,b)=>b.count-a.count);
-
-  root.innerHTML = `
-    <div class="view-head"><div><h2>Colaboradores</h2><div class="view-sub">${list.length} colaborador(es) com pedidos registrados.</div></div></div>
-    <div class="table-wrap">
-      ${list.length ? `
-      <table class="data-table">
-        <thead><tr><th>Colaborador</th><th>Departamento</th><th>Pedidos</th><th>Total gasto</th><th>Último pedido</th></tr></thead>
-        <tbody>
-          ${list.map(e=>`
-            <tr data-emp="${e.id}">
-              <td class="cell-strong">${escapeHtml(e.name)}</td>
-              <td>${escapeHtml(departmentName(e.department))}</td>
-              <td>${e.count}</td>
-              <td class="cell-strong">${fmtBRL(e.value)}</td>
-              <td>${fmtDate(e.lastDate)}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>` : emptyState('👥','Nenhum colaborador ainda','Colaboradores aparecem aqui assim que fizerem o primeiro pedido.')}
-    </div>
-  `;
-  root.querySelectorAll('tbody tr[data-emp]').forEach(tr=>tr.addEventListener('click', ()=>openEmployeeOrdersModal(tr.dataset.emp)));
-}
-function openEmployeeOrdersModal(employeeId){
-  const orders = DB.orders.filter(o=>o.employeeId===employeeId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  if(!orders.length) return;
-  const name = orders[0].employeeName;
-  const total = orders.filter(o=>o.status!=='cancelado').reduce((s,o)=>s+o.total,0);
-  openModal(`
-    <div class="modal-head"><h3>👤 ${escapeHtml(name)}</h3><button class="modal-close" id="closeEmpDetail">✕</button></div>
-    <div class="modal-body">
-      <div class="form-grid" style="margin-bottom:16px;">
-        <div><div class="cell-sub">Pedidos</div><div class="cell-strong">${orders.length}</div></div>
-        <div><div class="cell-sub">Total gasto</div><div class="cell-strong">${fmtBRL(total)}</div></div>
-      </div>
-      <div class="cell-sub" style="margin-bottom:8px;">Histórico de pedidos</div>
-      ${orders.map(o=>`
-        <div class="order-line">
-          <span>${fmtDate(o.date)} · ${escapeHtml(o.items.map(i=>i.qty+'x '+i.name).join(', '))}</span>
-          <span class="row" style="gap:8px;"><span class="cell-strong">${fmtBRL(o.total)}</span><span class="badge badge-${STATUS_META[o.status].cls}"><span class="dot"></span>${STATUS_META[o.status].label}</span></span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="modal-foot"><button class="btn btn-ghost" id="closeEmpDetail2">Fechar</button></div>
-  `, {wide:true});
-  document.getElementById('closeEmpDetail').addEventListener('click', closeModal);
-  document.getElementById('closeEmpDetail2').addEventListener('click', closeModal);
-}
-
-/* ---------------------------------------------------------------
    RELATÓRIOS
 --------------------------------------------------------------- */
 let reportFilter = {group:'periodo', range:'month', from:'', to:''};
@@ -1936,6 +1751,11 @@ function renderRelatorios(root){
         <div class="field-inline"><span>Até</span><input type="date" id="repTo" value="${reportFilter.to||todayStr()}"></div>
         <button class="btn btn-primary btn-sm" id="repApply">Aplicar</button>
       ` : ''}
+      <div class="row" style="margin-left:auto;gap:8px;">
+        <button class="btn btn-ghost btn-sm" id="expCsv">⬇ Exportar CSV</button>
+        <button class="btn btn-ghost btn-sm" id="expExcel">⬇ Exportar Excel</button>
+        <button class="btn btn-ghost btn-sm" id="expPdf">⬇ Exportar PDF</button>
+      </div>
     </div>
 
     <div class="panel" style="margin-bottom:16px;">
@@ -1999,63 +1819,26 @@ function renderRelatorios(root){
   if(applyBtn) applyBtn.addEventListener('click', ()=>{
     reportFilter.from=document.getElementById('repFrom').value; reportFilter.to=document.getElementById('repTo').value; renderView();
   });
+  document.getElementById('expCsv').addEventListener('click', ()=>exportOrdersCsv(valid));
+  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersCsv(valid,true));
+  document.getElementById('expPdf').addEventListener('click', ()=>toast('Exportação em PDF será enviada por e-mail em instantes.','success'));
 }
-function ordersToRows(orders){
+function exportOrdersCsv(orders, asExcel){
   const rows = [['Pedido','Colaborador','Departamento','Data','Horário','Itens','Total','Status']];
   orders.forEach(o=>rows.push([o.id,o.employeeName,departmentName(o.department),o.date,o.time,o.items.map(i=>i.qty+'x '+i.name).join(' | '),o.total.toFixed(2),STATUS_META[o.status].label]));
-  return rows;
-}
-function exportOrdersCsv(orders){
-  const rows = ordersToRows(orders);
   const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'relatorio-gofoods.csv';
+  a.href = url; a.download = `relatorio-gofoods${asExcel?'.xls':'.csv'}`;
   document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  toast('Relatório exportado (CSV).','success');
-}
-function exportOrdersExcel(orders){
-  if(typeof XLSX==='undefined'){ toast('Não foi possível carregar a biblioteca de planilhas.','error'); return; }
-  const rows = ordersToRows(orders);
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
-  XLSX.writeFile(wb, 'relatorio-gofoods.xlsx');
-  toast('Relatório exportado (Excel).','success');
-}
-function exportOrdersPdf(orders){
-  const rows = ordersToRows(orders);
-  const win = window.open('', '_blank');
-  if(!win){ toast('Permita pop-ups para gerar o PDF.','error'); return; }
-  const tableHtml = `
-    <table>
-      <thead><tr>${rows[0].map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-      <tbody>${rows.slice(1).map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
-    </table>`;
-  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório GoFoods</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#23201C;}
-      h1{font-size:18px;margin-bottom:4px;}
-      p{font-size:12px;color:#736C62;margin-top:0;margin-bottom:18px;}
-      table{width:100%;border-collapse:collapse;font-size:11px;}
-      th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
-      th{background:#F4F1EC;}
-    </style></head><body>
-    <h1>Relatório de pedidos — GoFoods</h1>
-    <p>Gerado em ${fmtDateTime(new Date().toISOString())} · ${orders.length} pedido(s)</p>
-    ${tableHtml}
-    </body></html>`);
-  win.document.close();
-  win.focus();
-  win.print();
+  toast(`Relatório exportado (${asExcel?'Excel':'CSV'}).`,'success');
 }
 
 /* ---------------------------------------------------------------
    NOTIFICAÇÕES (página completa)
 --------------------------------------------------------------- */
-const NOTIF_ICONS_FULL = {novo_pedido:'🥪', pedido_entregue:'🟢', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
+const NOTIF_ICONS_FULL = {novo_pedido:'🥪', pedido_entregue:'🟢', produto_indisponivel:'🚫', estoque_baixo:'📦', pedido_nao_retirado:'⚫'};
 function renderNotificacoesView(root){
   root.innerHTML = `
     <div class="view-head">
@@ -2105,38 +1888,10 @@ function renderConfiguracoes(root){
           <div class="row"><div style="width:32px;height:32px;border-radius:8px;background:#E8461F;border:1px solid var(--line);"></div><span class="cell-sub">#E8461F</span></div>
         </div>
         <div class="form-field"><label>Fuso horário</label><input type="text" value="América/São_Paulo (GMT-3)" disabled></div>
-        <div class="form-field full"><label>Categorias de produtos</label>
-          <div class="row" style="flex-wrap:wrap;gap:8px;">${CATEGORIES.map(c=>`<span class="badge badge-prep"><span class="dot"></span>${c}</span>`).join('')}</div>
-        </div>
       </div>
-      <div class="form-hint" style="margin-top:16px;">Este é um app interno da Gocase. Os dados de pedidos, colaboradores, produtos e departamentos são compartilhados entre todas as pessoas com acesso a este link.</div>
-    </div>
-
-    <div class="panel" style="max-width:640px;margin-top:16px;">
-      <div class="panel-head"><h3>Exportar dados e backup</h3></div>
-      <div class="form-hint" style="margin-bottom:14px;">Exporte todos os pedidos registrados ou baixe um backup completo dos dados do sistema (pedidos, produtos, departamentos, notificações e histórico).</div>
-      <div class="row" style="flex-wrap:wrap;gap:8px;">
-        <button class="btn btn-ghost btn-sm" id="expCsv">⬇ Exportar CSV</button>
-        <button class="btn btn-ghost btn-sm" id="expExcel">⬇ Exportar Excel</button>
-        <button class="btn btn-ghost btn-sm" id="expPdf">⬇ Exportar PDF</button>
-        <button class="btn btn-soft btn-sm" id="expBackup">💾 Backup</button>
-      </div>
+      <div class="form-hint" style="margin-top:16px;">Este é um app interno da Gocase. Os dados de pedidos, colaboradores e departamentos são compartilhados entre todas as pessoas com acesso a este link.</div>
     </div>
   `;
-  document.getElementById('expCsv').addEventListener('click', ()=>exportOrdersCsv(DB.orders));
-  document.getElementById('expExcel').addEventListener('click', ()=>exportOrdersExcel(DB.orders));
-  document.getElementById('expPdf').addEventListener('click', ()=>exportOrdersPdf(DB.orders));
-  document.getElementById('expBackup').addEventListener('click', downloadBackup);
-}
-function downloadBackup(){
-  const json = JSON.stringify(DB, null, 2);
-  const blob = new Blob([json], {type:'application/json;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `gofoods-backup-${todayStr()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  toast('Backup gerado com sucesso.','success');
 }
 
 /* ---------------------------------------------------------------
@@ -2175,7 +1930,7 @@ function renderColabOnboarding(root){
 function renderColabHome(root){
   if(!colabIdentity){ renderColabOnboarding(root); return; }
   const myOrders = DB.orders.filter(o=>o.employeeId===colabIdentity.name);
-  const active = myOrders.find(o=>STATUS_FLOW.includes(o.status) && o.status!=='entregue');
+  const active = myOrders.find(o=>o.status==='pendente');
   root.innerHTML = `
     <div class="colab-hero">
       <h2>Olá, ${escapeHtml(colabIdentity.name.split(' ')[0])}! 👋</h2>
@@ -2192,8 +1947,6 @@ function renderColabHome(root){
     <div class="colab-tiles">
       <div class="colab-tile" data-go="colab-pedir"><div class="c-ic">🥪</div><div class="c-label">Fazer pedido</div></div>
       <div class="colab-tile" data-go="colab-meus"><div class="c-ic">📋</div><div class="c-label">Meus pedidos</div></div>
-      <div class="colab-tile" data-go="colab-cardapio"><div class="c-ic">🍔</div><div class="c-label">Cardápio</div></div>
-      <div class="colab-tile" data-go="colab-meus"><div class="c-ic">🕓</div><div class="c-label">Histórico</div></div>
     </div>
     <div style="text-align:center;margin-top:18px;">
       <button class="btn btn-ghost btn-sm" id="colabSwitchUser">Trocar usuário</button>
@@ -2208,41 +1961,37 @@ function renderColabHome(root){
 let colabCart = [];
 function renderColabPedir(root){
   if(!colabIdentity){ renderColabOnboarding(root); return; }
-  const available = DB.products.filter(p=>p.stock>0);
   root.innerHTML = `
-    <div class="view-head"><div><h2>Fazer pedido</h2><div class="view-sub">Escolha seus lanches favoritos.</div></div></div>
-    ${available.length ? `<div class="card-grid" style="margin-bottom:20px;">
-      ${available.map(p=>`
-        <div class="prod-card">
-          <span class="prod-cat">${p.category}</span>
-          <div class="prod-name">${escapeHtml(p.name)}</div>
-          <div class="prod-desc">${escapeHtml(p.description||'')}</div>
-          <div class="prod-foot"><div class="prod-price">${fmtBRL(p.price)}</div></div>
-          <div class="prod-actions"><button class="btn btn-primary btn-sm" data-add="${p.id}" style="flex:1;">+ Adicionar</button></div>
-        </div>`).join('')}
-    </div>` : emptyState('🍽️','Nenhum item disponível no momento','Peça para um administrador cadastrar produtos no Cardápio.')}
-    <div class="panel" style="max-width:480px;">
+    <div class="view-head"><div><h2>Fazer pedido</h2><div class="view-sub">Digite os itens que você gostaria de pedir.</div></div></div>
+    <div class="panel" style="max-width:520px;">
+      <div class="item-picker-row" style="margin-bottom:14px;">
+        <div class="form-field"><label>Item</label><input type="text" id="colabf_item_name" placeholder="Ex: Sanduíche natural"></div>
+        <div class="form-field"><label>Preço (R$)</label><input type="number" id="colabf_item_price" min="0" step="0.10" placeholder="0,00"></div>
+        <div class="form-field"><label>Quantidade</label><input type="number" id="colabf_qty" min="1" value="1"></div>
+        <button type="button" class="btn btn-soft" id="colabAddItemBtn">+ Adicionar</button>
+      </div>
       <div class="panel-head"><h3>Meu carrinho</h3></div>
       <div class="order-items-box" id="colabCartBox"></div>
       <div class="form-field full" style="margin-top:14px;"><label>Observações</label><textarea id="colabObs" placeholder="Ex: sem cebola"></textarea></div>
       <button class="btn btn-primary" id="colabConfirmBtn" style="width:100%;margin-top:14px;">Confirmar pedido</button>
     </div>
   `;
-  root.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', ()=>{
-    const p = productById(b.dataset.add);
-    if(!p){ toast('Este item não está mais disponível.','error'); return; }
-    const ex = colabCart.find(i=>i.productId===p.id);
-    const alreadyInCart = ex ? ex.qty : 0;
-    if(alreadyInCart + 1 > p.stock){ toast(`Estoque insuficiente para "${p.name}".`,'error'); return; }
-    if(ex) ex.qty++; else colabCart.push({productId:p.id, name:p.name, price:p.price, qty:1});
+  document.getElementById('colabAddItemBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('colabf_item_name').value.trim();
+    const price = parseFloat(document.getElementById('colabf_item_price').value);
+    const qty = parseInt(document.getElementById('colabf_qty').value)||1;
+    if(!name){ toast('Digite o nome do item.','error'); return; }
+    if(isNaN(price) || price<0){ toast('Informe um preço válido.','error'); return; }
+    const existing = colabCart.find(i=>i.name.toLowerCase()===name.toLowerCase() && i.price===price);
+    if(existing) existing.qty += qty; else colabCart.push({name, price, qty});
+    document.getElementById('colabf_item_name').value = '';
+    document.getElementById('colabf_item_price').value = '';
+    document.getElementById('colabf_qty').value = '1';
     renderColabCart();
-    toast(`${p.name} adicionado ao carrinho.`,'success');
-  }));
+  });
   renderColabCart();
   document.getElementById('colabConfirmBtn').addEventListener('click', ()=>{
     if(!colabCart.length){ toast('Adicione ao menos um item.','error'); return; }
-    const stockError = validateCartAgainstStock(colabCart);
-    if(stockError){ toast(stockError,'error'); return; }
     const total = colabCart.reduce((s,i)=>s+i.price*i.qty,0);
     const order = {
       id:uid('PED-'), employeeId:colabIdentity.name, employeeName:colabIdentity.name, department:colabIdentity.department,
@@ -2253,7 +2002,6 @@ function renderColabPedir(root){
       statusHistory:[{status:'pendente', timestamp:new Date().toISOString(), user:colabIdentity.name}],
       createdAt:new Date().toISOString(),
     };
-    commitStockForItems(colabCart);
     DB.orders.unshift(order);
     pushNotification('novo_pedido', `Novo pedido realizado por ${colabIdentity.name}`);
     pushAudit(`registrou o pedido ${order.id} para ${colabIdentity.name}`, order.id);
@@ -2290,21 +2038,6 @@ function renderColabMeus(root){
         <div class="cell-sub" style="margin-top:4px;">${fmtDate(o.date)} às ${o.time} · ${fmtBRL(o.total)}</div>
       </div>
     `).join('') : emptyState('📭','Você ainda não fez pedidos','Vá até "Fazer pedido" para pedir seu primeiro lanche.')}
-  `;
-}
-function renderColabCardapio(root){
-  const products = DB.products.filter(p=>p.stock>0);
-  root.innerHTML = `
-    <div class="view-head"><div><h2>Cardápio</h2><div class="view-sub">Confira o que está disponível hoje.</div></div></div>
-    <div class="card-grid">
-      ${products.map(p=>`
-        <div class="prod-card">
-          <span class="prod-cat">${p.category}</span>
-          <div class="prod-name">${escapeHtml(p.name)}</div>
-          <div class="prod-desc">${escapeHtml(p.description||'')}</div>
-          <div class="prod-foot"><div class="prod-price">${fmtBRL(p.price)}</div></div>
-        </div>`).join('')}
-    </div>
   `;
 }
 
